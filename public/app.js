@@ -140,7 +140,7 @@ function isDark() {
 function applyTheme(theme) {
   document.documentElement.setAttribute("data-theme", theme);
   try {
-    localStorage.setItem("mytypst-theme", theme);
+    localStorage.setItem("ripplytypst-theme", theme);
   } catch {
     /* ignore */
   }

@@ -1,5 +1,5 @@
 {
-  "name": "mytypst",
+  "name": "ripplytypst",
   "version": "0.1.0",
   "private": true,
   "description": "Lightweight local Typst editor with live PDF preview",

@@ -10,7 +10,7 @@ commits: (root) fd5d379..0848d99
 
 ## Report
 
-**What was built** — A lightweight local Typst playground (inspired by typst.app/play) at `~/Documents/MyTypst`. A Node/Express process serves a three-pane UI (file tree · CodeMirror 6 · pdf.js live preview) and a JSON file API sandboxed to one opened project directory. Compilation shells out to the system `typst` CLI (`--root` restricted), with stderr parsed into clickable diagnostics. Multi-file projects work (`#include`), autosave/compile are debounced, and PDF/SVG/PNG export is available (SVG/PNG multi-page currently first page only). Default bind is `127.0.0.1:8787`.
+**What was built** — A lightweight local Typst playground (inspired by typst.app/play) at `~/Documents/RippleTypst`. A Node/Express process serves a three-pane UI (file tree · CodeMirror 6 · pdf.js live preview) and a JSON file API sandboxed to one opened project directory. Compilation shells out to the system `typst` CLI (`--root` restricted), with stderr parsed into clickable diagnostics. Multi-file projects work (`#include`), autosave/compile are debounced, and PDF/SVG/PNG export is available (SVG/PNG multi-page currently first page only). Default bind is `127.0.0.1:8787`.
 
 **Verification** — `node --test test/project.test.js test/http.test.js` PASS 10/10 (path traversal, hidden segments, symlink escape, delete-dir refusal, CRUD, entry selection, stderr parse, compile happy/error, multi-file include, HTTP API). `npm run build` PASS. HTTP smoke: health/compile/pdf/export + sandbox 400s PASS. Playwright UI: three-pane layout, 3-page PDF preview, live diagnostics (`unknown variable: broken`) PASS. Re-review after critical fixes: APPROVE (symlink realpath sandbox, non-recursive delete, hidden-path deny).
 
@@ -65,11 +65,11 @@ Threat model: trusted local user. Default bind `127.0.0.1`. File APIs can re-roo
 | POST | `/api/file/create` | `{path, content?}` | `{ok}` |
 | DELETE | `/api/file` | `?path=rel` | `{ok}` (files only) |
 
-`TreeNode`: `{name, path, type: "file"|"dir", children?}` (hide `.git`, `.mytypst`, `node_modules`, dotfiles).
+`TreeNode`: `{name, path, type: "file"|"dir", children?}` (hide `.git`, `.ripplytypst`, `node_modules`, dotfiles).
 
 `Diagnostic`: `{severity: "error"|"warning", message, file?, line?, col?}`.
 
-Compile writes PDF to `<project>/.mytypst/out.pdf` (hidden from tree/API). Errors keep last good preview and show diagnostics. Explicit missing `entry` returns `{ok:false}` (no silent fallback).
+Compile writes PDF to `<project>/.ripplytypst/out.pdf` (hidden from tree/API). Errors keep last good preview and show diagnostics. Explicit missing `entry` returns `{ok:false}` (no silent fallback).
 
 ### Typst invocation
 ```

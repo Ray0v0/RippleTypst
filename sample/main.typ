@@ -1,9 +1,9 @@
-#set document(title: "MyTypst Sample")
+#set document(title: "RippleTypst Sample")
 #set page(paper: "a8", margin: 1cm)
 #set text(font: "New Computer Modern", size: 10pt)
 
 #align(center)[
-  #text(size: 1.4em, weight: "bold")[Hello, MyTypst]
+  #text(size: 1.4em, weight: "bold")[Hello, RippleTypst]
 
   #v(0.4em)
   #text(fill: rgb("#32506d"))[Local playground sample]

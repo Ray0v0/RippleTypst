@@ -1,4 +1,4 @@
-# MyTypst
+# RippleTypst
 
 Lightweight local Typst editor (inspired by typst.app/play).
 

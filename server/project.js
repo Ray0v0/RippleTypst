@@ -24,7 +24,7 @@ const VISIBLE = new Set([
   ".md",
 ]);
 
-const SKIP = new Set([".git", ".mytypst", "node_modules", ".DS_Store"]);
+const SKIP = new Set([".git", ".ripplytypst", "node_modules", ".DS_Store"]);
 
 /** @typedef {{name:string,path:string,type:"file"|"dir",children?:TreeNode[]}} TreeNode */
 
@@ -217,7 +217,7 @@ export class Project {
   }
 
   outDir() {
-    return path.join(this.root, ".mytypst");
+    return path.join(this.root, ".ripplytypst");
   }
 
   outPath(ext = "pdf") {

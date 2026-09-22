@@ -185,7 +185,7 @@ const isMain =
 if (isMain) {
   app.listen(PORT, HOST, async () => {
     const version = await typstVersion();
-    console.log(`MyTypst → http://${HOST}:${PORT}`);
+    console.log(`RippleTypst → http://${HOST}:${PORT}`);
     console.log(`Project root → ${project.root}`);
     console.log(`Typst → ${version || "NOT FOUND"}`);
     if (HOST !== "127.0.0.1" && HOST !== "localhost") {
