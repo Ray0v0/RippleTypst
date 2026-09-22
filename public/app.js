@@ -1,7 +1,7 @@
 import { EditorView, basicSetup } from "codemirror";
 import { EditorState, Compartment } from "@codemirror/state";
 import { keymap } from "@codemirror/view";
-import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
+import { defaultKeymap, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { searchKeymap, highlightSelectionMatches } from "@codemirror/search";
 import {
   syntaxHighlighting,
@@ -9,7 +9,6 @@ import {
   StreamLanguage,
   bracketMatching,
 } from "@codemirror/language";
-import { tags as t } from "@lezer/highlight";
 
 /** Minimal Typst markup highlighter */
 const typstHighlighting = syntaxHighlighting(defaultHighlightStyle);
@@ -43,11 +42,11 @@ const state = {
   content: "",
   dirty: false,
   saving: false,
+  loading: false,
   zoom: 1,
   saveTimer: null,
   compileTimer: null,
   pdfDoc: null,
-  projectId: null,
 };
 
 const el = {
@@ -118,7 +117,7 @@ const view = new EditorView({
         },
       ]),
       EditorView.updateListener.of((u) => {
-        if (u.docChanged && state.path) {
+        if (u.docChanged && state.path && !state.loading) {
           state.content = u.state.doc.toString();
           state.dirty = true;
           el.saveState.textContent = "未保存";
@@ -137,9 +136,11 @@ const view = new EditorView({
 });
 
 function setDoc(text) {
+  state.loading = true;
   view.dispatch({
     changes: { from: 0, to: view.state.doc.length, insert: text },
   });
+  state.loading = false;
 }
 
 function scheduleSave() {
@@ -183,6 +184,7 @@ async function openFile(rel) {
     await saveNow(false);
   }
   try {
+    clearTimeout(state.saveTimer);
     const data = await api(`/api/file?path=${encodeURIComponent(rel)}`);
     state.path = data.path;
     state.content = data.content;

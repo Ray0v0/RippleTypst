@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { newProject, parseTypstStderr } from "../server/project.js";
 import { compileProject, typstVersion } from "../server/compile.js";
 
@@ -15,10 +16,18 @@ async function tmpProject() {
 
 test("resolve rejects path traversal", async () => {
   const { project, dir } = await tmpProject();
-  assert.throws(() => project.resolve("../outside.txt"), /escapes/);
+  assert.throws(() => project.resolve("../outside.txt"), /escapes|not allowed/);
   assert.throws(() => project.resolve("/etc/passwd"), /Invalid path|escapes/);
   const ok = project.resolve("sub/file.typ");
   assert.equal(ok.startsWith(dir), true);
+});
+
+test("resolve rejects hidden and blocked segments", async () => {
+  const { project } = await tmpProject();
+  assert.throws(() => project.resolve(".git/config"), /not allowed/);
+  assert.throws(() => project.resolve(".mytypst/out.pdf"), /not allowed/);
+  assert.throws(() => project.resolve("docs/.secret"), /not allowed/);
+  assert.throws(() => project.resolve("node_modules/x"), /not allowed/);
 });
 
 test("file CRUD under root", async () => {
@@ -33,10 +42,30 @@ test("file CRUD under root", async () => {
   await assert.rejects(() => project.readFile("notes/chapter.typ"), /ENOENT|Not a file|no such/i);
 });
 
-test("pickEntry prefers main.typ", async () => {
+test("deleteFile refuses directories", async () => {
+  const { project } = await tmpProject();
+  await project.writeFile("notes/a.typ", "x\n");
+  await assert.rejects(() => project.deleteFile("notes"), /directory/i);
+  // still present
+  const data = await project.readFile("notes/a.typ");
+  assert.equal(data.content, "x\n");
+});
+
+test("symlink escape is rejected", async () => {
+  const { project, dir } = await tmpProject();
+  const outside = await fs.mkdtemp(path.join(os.tmpdir(), "mytypst-out-"));
+  await fs.writeFile(path.join(outside, "secret.txt"), "secret");
+  await fs.symlink(outside, path.join(dir, "escape"));
+  await assert.rejects(() => project.readFile("escape/secret.txt"), /escapes|not allowed/);
+  await assert.rejects(() => project.writeFile("escape/evil.typ", "x"), /escapes|not allowed/);
+  await assert.rejects(() => project.deleteFile("escape/secret.txt"), /escapes|not allowed/);
+});
+
+test("pickEntry prefers main.typ and errors on missing preferred", async () => {
   const { project } = await tmpProject();
   await project.writeFile("other.typ", "other");
   assert.equal(await project.pickEntry(), "main.typ");
+  await assert.rejects(() => project.pickEntry("nope.typ"), /Entry not found/);
   await project.deleteFile("main.typ");
   assert.equal(await project.pickEntry(), "other.typ");
 });

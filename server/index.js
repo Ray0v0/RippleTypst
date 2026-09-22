@@ -29,12 +29,10 @@ const PORT = args.port ?? Number(process.env.PORT || 8787);
 const HOST = args.host ?? process.env.HOST ?? "127.0.0.1";
 
 let project = newProject(args.root ? path.resolve(args.root) : SAMPLE);
-let lastCompile = null;
 
 const app = express();
 app.use(express.json({ limit: "5mb" }));
 app.use(express.static(PUBLIC));
-app.use("/vendor", express.static(path.join(ROOT, "node_modules")));
 
 function fail(res, err) {
   const status = err.status || (err.code === "ENOENT" ? 404 : 500);
@@ -46,6 +44,10 @@ function projectInfo() {
     root: project.root,
     name: path.basename(project.root),
   };
+}
+
+function safeFilename(name) {
+  return String(name).replace(/["\\\r\n]/g, "_").slice(0, 120) || "document";
 }
 
 app.get("/api/health", async (_req, res) => {
@@ -72,7 +74,6 @@ app.post("/api/project/open", async (req, res) => {
     const next = newProject(path.resolve(p));
     await next.assertDir();
     project = next;
-    lastCompile = null;
     const files = await project.tree();
     res.json({ ...projectInfo(), files });
   } catch (e) {
@@ -105,7 +106,10 @@ app.put("/api/file", async (req, res) => {
 app.post("/api/file/create", async (req, res) => {
   try {
     const { path: rel, content } = req.body || {};
-    const data = await project.createFile(String(rel || ""), typeof content === "string" ? content : "");
+    const data = await project.createFile(
+      String(rel || ""),
+      typeof content === "string" ? content : "",
+    );
     res.json(data);
   } catch (e) {
     fail(res, e);
@@ -127,7 +131,6 @@ app.post("/api/compile", async (req, res) => {
       entry: req.body?.entry,
       format: "pdf",
     });
-    if (result.ok) lastCompile = { at: Date.now(), result };
     res.json(result);
   } catch (e) {
     fail(res, e);
@@ -163,7 +166,7 @@ app.get("/api/export", async (req, res) => {
     res.setHeader("Content-Type", types[result.format]);
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename="${result.filename}"`,
+      `attachment; filename="${safeFilename(result.filename)}"`,
     );
     res.send(result.buffer);
   } catch (e) {
@@ -176,7 +179,8 @@ app.get(/^\/(?!api\/).*/, (_req, res) => {
   res.sendFile(path.join(PUBLIC, "index.html"));
 });
 
-const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+const isMain =
+  process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 
 if (isMain) {
   app.listen(PORT, HOST, async () => {
@@ -184,6 +188,11 @@ if (isMain) {
     console.log(`MyTypst → http://${HOST}:${PORT}`);
     console.log(`Project root → ${project.root}`);
     console.log(`Typst → ${version || "NOT FOUND"}`);
+    if (HOST !== "127.0.0.1" && HOST !== "localhost") {
+      console.log(
+        "Warning: non-loopback bind exposes local file APIs on the network.",
+      );
+    }
   });
 }
 

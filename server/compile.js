@@ -49,7 +49,16 @@ export async function typstVersion() {
  */
 export async function compileProject(project, opts = {}) {
   const format = opts.format === "svg" || opts.format === "png" ? opts.format : "pdf";
-  const entryRel = await project.pickEntry(opts.entry);
+  let entryRel;
+  try {
+    entryRel = await project.pickEntry(opts.entry);
+  } catch (e) {
+    return {
+      ok: false,
+      diagnostics: [{ severity: "error", message: e.message }],
+      durationMs: 0,
+    };
+  }
   if (!entryRel) {
     return {
       ok: false,
@@ -152,14 +161,18 @@ export async function exportArtifact(project, format) {
     }
     if (matches.length === 1) {
       buffer = await fs.readFile(path.join(outDir, matches[0]));
-    } else if (fmt === "png") {
-      // return first page only in v1 when multi-page (browser download of one png)
+    } else {
+      // Multi-page SVG/PNG: v1 returns the first page only (see spec S2).
       buffer = await fs.readFile(path.join(outDir, matches[0]));
-      filename = `${path.basename(project.root) || "document"}-1.png`;
-    } else if (fmt === "svg") {
-      buffer = await fs.readFile(path.join(outDir, matches[0]));
-      filename = `${path.basename(project.root) || "document"}-1.svg`;
+      filename = `${path.basename(project.root) || "document"}-1.${fmt}`;
     }
   }
-  return { ok: true, format: fmt, buffer, filename };
+  return {
+    ok: true,
+    format: fmt,
+    buffer,
+    filename,
+    pages: result.artifacts?.length || 1,
+    note: result.artifacts?.length > 1 ? "first page only for multi-page SVG/PNG" : undefined,
+  };
 }

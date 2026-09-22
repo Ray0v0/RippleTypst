@@ -1,12 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import fs from "node:fs/promises";
-import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
 
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PORT = 8799;
-const ROOT = path.resolve("/Users/ray/Documents/MyTypst");
 
 async function waitForServer(url, tries = 40) {
   for (let i = 0; i < tries; i += 1) {
@@ -41,6 +40,11 @@ test("http API: health, compile, path sandbox, export", async () => {
     );
     assert.equal(esc.status, 400);
 
+    const hidden = await fetch(
+      `http://127.0.0.1:${PORT}/api/file?path=${encodeURIComponent(".git/config")}`,
+    );
+    assert.equal(hidden.status, 400);
+
     const put = await fetch(`http://127.0.0.1:${PORT}/api/file`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -55,6 +59,13 @@ test("http API: health, compile, path sandbox, export", async () => {
     }).then((r) => r.json());
     assert.equal(compile.ok, true, JSON.stringify(compile));
 
+    const missing = await fetch(`http://127.0.0.1:${PORT}/api/compile`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ entry: "does-not-exist.typ" }),
+    }).then((r) => r.json());
+    assert.equal(missing.ok, false);
+
     const pdf = await fetch(`http://127.0.0.1:${PORT}/api/pdf`);
     assert.equal(pdf.status, 200);
     assert.equal(pdf.headers.get("content-type"), "application/pdf");
@@ -62,8 +73,19 @@ test("http API: health, compile, path sandbox, export", async () => {
     const exportPdf = await fetch(`http://127.0.0.1:${PORT}/api/export?format=pdf`);
     assert.equal(exportPdf.status, 200);
 
-    // cleanup temp file via API
+    await fetch(`http://127.0.0.1:${PORT}/api/file`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: "tmpdir/x.typ", content: "x\n" }),
+    });
+    const delDir = await fetch(
+      `http://127.0.0.1:${PORT}/api/file?path=${encodeURIComponent("tmpdir")}`,
+      { method: "DELETE" },
+    );
+    assert.equal(delDir.status, 400);
+
     await fetch(`http://127.0.0.1:${PORT}/api/file?path=tmp-http.typ`, { method: "DELETE" });
+    await fetch(`http://127.0.0.1:${PORT}/api/file?path=tmpdir/x.typ`, { method: "DELETE" });
   } finally {
     child.kill("SIGTERM");
   }

@@ -1,6 +1,5 @@
 import path from "node:path";
 import fs from "node:fs/promises";
-import { randomUUID } from "node:crypto";
 
 const VISIBLE = new Set([
   ".typ",
@@ -29,9 +28,31 @@ const SKIP = new Set([".git", ".mytypst", "node_modules", ".DS_Store"]);
 
 /** @typedef {{name:string,path:string,type:"file"|"dir",children?:TreeNode[]}} TreeNode */
 
+function denied(message) {
+  const err = new Error(message);
+  err.code = "EACCES";
+  err.status = 400;
+  return err;
+}
+
+function invalid(message = "Invalid path") {
+  const err = new Error(message);
+  err.code = "EINVAL";
+  err.status = 400;
+  return err;
+}
+
 export class Project {
   constructor(root) {
     this.root = path.resolve(root);
+    this.rootReal = null;
+  }
+
+  async realRoot() {
+    if (!this.rootReal) {
+      this.rootReal = await fs.realpath(this.root);
+    }
+    return this.rootReal;
   }
 
   async assertDir() {
@@ -41,25 +62,66 @@ export class Project {
         code: "ENOTDIR",
       });
     }
+    this.rootReal = await fs.realpath(this.root);
   }
 
-  /** Resolve a relative path inside the project or throw. */
+  /** Sync lexical resolve: rejects escapes and hidden/blocked segments. */
   resolve(rel) {
     const clean = String(rel ?? "").replace(/\\/g, "/");
     if (!clean || path.isAbsolute(clean) || clean.includes("\0")) {
-      const err = new Error("Invalid path");
-      err.code = "EINVAL";
-      err.status = 400;
-      throw err;
+      throw invalid();
     }
-    const abs = path.resolve(this.root, clean);
+    const parts = clean.split("/").filter((p) => p.length > 0 && p !== ".");
+    for (const part of parts) {
+      if (part === "..") {
+        throw denied("Path escapes project root");
+      }
+      if (part.startsWith(".") || SKIP.has(part)) {
+        throw denied("Path segment is not allowed");
+      }
+    }
+    const abs = path.resolve(this.root, ...parts);
     const rootWithSep = this.root.endsWith(path.sep) ? this.root : this.root + path.sep;
     if (abs !== this.root && !abs.startsWith(rootWithSep)) {
-      const err = new Error("Path escapes project root");
-      err.code = "EACCES";
-      err.status = 400;
-      throw err;
+      throw denied("Path escapes project root");
     }
+    return abs;
+  }
+
+  /**
+   * After symlink resolution, ensure abs (or its nearest existing ancestor)
+   * still lives under the real project root.
+   */
+  async ensureWithinRoot(abs) {
+    const realRoot = await this.realRoot();
+    const rootWithSep = realRoot.endsWith(path.sep) ? realRoot : realRoot + path.sep;
+    let cur = abs;
+    for (;;) {
+      try {
+        const real = await fs.realpath(cur);
+        if (real !== realRoot && !real.startsWith(rootWithSep)) {
+          throw denied("Path escapes project root");
+        }
+        return;
+      } catch (e) {
+        if (e.code === "EACCES" || e.status === 400) throw e;
+        if (e.code !== "ENOENT") {
+          // Unreadable intermediate (e.g. broken symlink target) is a denial.
+          if (e.code === "ELOOP" || e.code === "ENOTDIR") {
+            throw denied("Path escapes project root");
+          }
+          throw e;
+        }
+        const parent = path.dirname(cur);
+        if (parent === cur) throw denied("Path escapes project root");
+        cur = parent;
+      }
+    }
+  }
+
+  async resolveChecked(rel) {
+    const abs = this.resolve(rel);
+    await this.ensureWithinRoot(abs);
     return abs;
   }
 
@@ -74,7 +136,7 @@ export class Project {
   }
 
   async tree(rel = ".") {
-    const abs = rel === "." ? this.root : this.resolve(rel);
+    const abs = rel === "." ? this.root : await this.resolveChecked(rel);
     const entries = await fs.readdir(abs, { withFileTypes: true });
     entries.sort((a, b) => {
       if (a.isDirectory() !== b.isDirectory()) return a.isDirectory() ? -1 : 1;
@@ -83,7 +145,7 @@ export class Project {
     /** @type {TreeNode[]} */
     const out = [];
     for (const e of entries) {
-      if (SKIP.has(e.name)) continue;
+      if (SKIP.has(e.name) || e.name.startsWith(".")) continue;
       const childAbs = path.join(abs, e.name);
       const childRel = this.toRel(childAbs);
       if (e.isDirectory()) {
@@ -101,20 +163,19 @@ export class Project {
   }
 
   async readFile(rel) {
-    const abs = this.resolve(rel);
+    const abs = await this.resolveChecked(rel);
     const st = await fs.stat(abs);
     if (!st.isFile()) {
-      const err = new Error("Not a file");
-      err.status = 400;
-      throw err;
+      throw Object.assign(new Error("Not a file"), { status: 400, code: "EISDIR" });
     }
     const content = await fs.readFile(abs, "utf8");
     return { path: this.toRel(abs), content, mtimeMs: st.mtimeMs };
   }
 
   async writeFile(rel, content) {
-    const abs = this.resolve(rel);
+    const abs = await this.resolveChecked(rel);
     await fs.mkdir(path.dirname(abs), { recursive: true });
+    await this.ensureWithinRoot(abs);
     await fs.writeFile(abs, content, "utf8");
     const st = await fs.stat(abs);
     return { ok: true, path: this.toRel(abs), mtimeMs: st.mtimeMs };
@@ -122,28 +183,36 @@ export class Project {
 
   async createFile(rel, content = "") {
     const abs = this.resolve(rel);
+    await this.ensureWithinRoot(abs);
     await fs.mkdir(path.dirname(abs), { recursive: true });
+    await this.ensureWithinRoot(path.dirname(abs));
     try {
-      await fs.access(abs);
-      const err = new Error("File already exists");
-      err.code = "EEXIST";
-      err.status = 409;
-      throw err;
+      await fs.writeFile(abs, content, { encoding: "utf8", flag: "wx" });
     } catch (e) {
-      if (e.code !== "ENOENT") throw e;
+      if (e.code === "EEXIST") {
+        const err = new Error("File already exists");
+        err.code = "EEXIST";
+        err.status = 409;
+        throw err;
+      }
+      throw e;
     }
-    await fs.writeFile(abs, content, "utf8");
     return { ok: true, path: this.toRel(abs) };
   }
 
   async deleteFile(rel) {
-    const abs = this.resolve(rel);
+    const abs = await this.resolveChecked(rel);
     if (abs === this.root) {
-      const err = new Error("Cannot delete project root");
-      err.status = 400;
-      throw err;
+      throw invalid("Cannot delete project root");
     }
-    await fs.rm(abs, { recursive: true, force: false });
+    const st = await fs.lstat(abs);
+    if (st.isDirectory()) {
+      throw Object.assign(new Error("Refusing to delete a directory"), {
+        code: "EISDIR",
+        status: 400,
+      });
+    }
+    await fs.unlink(abs);
     return { ok: true };
   }
 
@@ -161,12 +230,15 @@ export class Project {
 
   async pickEntry(preferred) {
     if (preferred) {
-      const abs = this.resolve(preferred);
+      const abs = await this.resolveChecked(preferred);
       try {
         await fs.access(abs);
         return this.toRel(abs);
       } catch {
-        /* fall through */
+        throw Object.assign(new Error(`Entry not found: ${preferred}`), {
+          code: "ENOENT",
+          status: 404,
+        });
       }
     }
     const main = path.join(this.root, "main.typ");
@@ -185,19 +257,11 @@ export class Project {
     }
     return null;
   }
-
-  compileId = null;
 }
 
 export function parseTypstStderr(stderr) {
   const diags = [];
   const lines = String(stderr || "").split(/\r?\n/);
-  // Example:
-  // error: unknown variable: x
-  //   ┌─ main.typ:3:8
-  //   │
-  // 3 │ hello x
-  //   │        ^
   let i = 0;
   while (i < lines.length) {
     const m = lines[i].match(/^(error|warning):\s*(.*)$/);
@@ -235,7 +299,5 @@ export function parseTypstStderr(stderr) {
 }
 
 export function newProject(root) {
-  const p = new Project(root);
-  p.compileId = randomUUID();
-  return p;
+  return new Project(root);
 }
