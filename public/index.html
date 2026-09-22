@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MyTypst</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">MyTypst</div>
+      <div class="project-path">
+        <label class="sr-only" for="root-input">项目目录</label>
+        <input id="root-input" placeholder="/path/to/typst/project" spellcheck="false" />
+        <button id="open-btn" type="button">打开</button>
+      </div>
+      <div class="actions">
+        <button id="compile-btn" type="button" title="Ctrl/Cmd+Enter">编译</button>
+        <button id="save-btn" type="button" title="Ctrl/Cmd+S">保存</button>
+        <div class="export-group">
+          <button id="export-pdf" type="button">PDF</button>
+          <button id="export-svg" type="button">SVG</button>
+          <button id="export-png" type="button">PNG</button>
+        </div>
+        <span id="status" class="status">就绪</span>
+      </div>
+    </header>
+
+    <main class="layout">
+      <aside class="sidebar">
+        <div class="sidebar-head">
+          <span>文件</span>
+          <div class="sidebar-actions">
+            <button id="new-file-btn" type="button" title="新建文件">＋</button>
+            <button id="refresh-btn" type="button" title="刷新">↻</button>
+          </div>
+        </div>
+        <ul id="file-tree" class="file-tree"></ul>
+        <div id="open-error" class="banner hidden"></div>
+      </aside>
+
+      <section class="editor-pane">
+        <div class="editor-meta">
+          <span id="active-file">未打开文件</span>
+          <span id="save-state" class="muted"></span>
+        </div>
+        <div id="editor" class="editor"></div>
+        <div class="diagnostics-wrap">
+          <div class="diagnostics-head">诊断</div>
+          <ul id="diagnostics" class="diagnostics"></ul>
+        </div>
+      </section>
+
+      <section class="preview-pane">
+        <div class="preview-meta">
+          <span>预览</span>
+          <div class="zoom">
+            <button id="zoom-out" type="button">−</button>
+            <span id="zoom-label">100%</span>
+            <button id="zoom-in" type="button">＋</button>
+          </div>
+        </div>
+        <div id="preview" class="preview">
+          <div id="preview-empty" class="preview-empty">编译后在此显示 PDF</div>
+          <div id="pdf-container" class="pdf-container"></div>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="/dist/app.js"></script>
+  </body>
+</html>

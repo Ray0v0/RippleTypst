@@ -1,0 +1,7 @@
+node_modules/
+public/dist/
+.mytypst/
+*.pdf
+.DS_Store
+
+.playwright-cli/
