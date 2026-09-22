@@ -8,31 +8,35 @@
   </head>
   <body>
     <header class="topbar">
-      <div class="brand">MyTypst</div>
+      <div class="brand">
+        <span class="logo"></span>
+        MyTypst
+      </div>
       <div class="project-path">
         <label class="sr-only" for="root-input">项目目录</label>
         <input id="root-input" placeholder="/path/to/typst/project" spellcheck="false" />
-        <button id="open-btn" type="button">打开</button>
+        <button id="open-btn" type="button" class="btn">打开</button>
       </div>
       <div class="actions">
-        <button id="compile-btn" type="button" title="Ctrl/Cmd+Enter">编译</button>
-        <button id="save-btn" type="button" title="Ctrl/Cmd+S">保存</button>
+        <button id="theme-btn" type="button" class="btn" title="切换浅色/深色">◐</button>
+        <button id="compile-btn" type="button" class="btn" title="Ctrl/Cmd+Enter">编译</button>
+        <button id="save-btn" type="button" class="btn" title="Ctrl/Cmd+S">保存</button>
         <div class="export-group">
-          <button id="export-pdf" type="button" title="完整 PDF">PDF</button>
-          <button id="export-svg" type="button" title="SVG（多页时仅第 1 页）">SVG</button>
-          <button id="export-png" type="button" title="PNG（多页时仅第 1 页）">PNG</button>
+          <button id="export-pdf" type="button" class="btn" title="完整 PDF">PDF</button>
+          <button id="export-svg" type="button" class="btn" title="SVG（多页时仅第 1 页）">SVG</button>
+          <button id="export-png" type="button" class="btn" title="PNG（多页时仅第 1 页）">PNG</button>
         </div>
-        <span id="status" class="status">就绪</span>
+        <span id="status" class="status-dot" title="就绪"></span>
       </div>
     </header>
 
     <main class="layout">
       <aside class="sidebar">
-        <div class="sidebar-head">
-          <span>文件</span>
-          <div class="sidebar-actions">
-            <button id="new-file-btn" type="button" title="新建文件">＋</button>
-            <button id="refresh-btn" type="button" title="刷新">↻</button>
+        <div class="pane-head">
+          <span class="pane-title">文件</span>
+          <div class="pane-tools">
+            <button id="new-file-btn" type="button" class="icon-btn" title="新建文件">＋</button>
+            <button id="refresh-btn" type="button" class="icon-btn" title="刷新">↻</button>
           </div>
         </div>
         <ul id="file-tree" class="file-tree"></ul>
@@ -40,24 +44,30 @@
       </aside>
 
       <section class="editor-pane">
-        <div class="editor-meta">
-          <span id="active-file">未打开文件</span>
+        <div class="pane-head">
+          <div class="pane-head-main">
+            <span class="pane-title">源码</span>
+            <span id="active-file" class="file-chip">未打开文件</span>
+          </div>
           <span id="save-state" class="muted"></span>
         </div>
         <div id="editor" class="editor"></div>
         <div class="diagnostics-wrap">
-          <div class="diagnostics-head">诊断</div>
+          <div class="pane-head compact">
+            <span class="pane-title">诊断</span>
+            <span id="diag-count" class="muted"></span>
+          </div>
           <ul id="diagnostics" class="diagnostics"></ul>
         </div>
       </section>
 
       <section class="preview-pane">
-        <div class="preview-meta">
-          <span>预览</span>
+        <div class="pane-head">
+          <span class="pane-title">预览</span>
           <div class="zoom">
-            <button id="zoom-out" type="button">−</button>
+            <button id="zoom-out" type="button" class="icon-btn" title="缩小">−</button>
             <span id="zoom-label">100%</span>
-            <button id="zoom-in" type="button">＋</button>
+            <button id="zoom-in" type="button" class="icon-btn" title="放大">＋</button>
           </div>
         </div>
         <div id="preview" class="preview">
@@ -67,6 +77,14 @@
       </section>
     </main>
 
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem("mytypst-theme") || "dark";
+          document.documentElement.setAttribute("data-theme", t);
+        } catch (e) {}
+      })();
+    </script>
     <script type="module" src="/dist/app.js"></script>
   </body>
 </html>
