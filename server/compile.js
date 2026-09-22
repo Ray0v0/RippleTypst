@@ -72,7 +72,7 @@ export async function compileProject(project, opts = {}) {
   const outRel =
     format === "pdf"
       ? path.relative(project.root, outAbs)
-      : path.join(".ripplytypst", `out{p}.${format}`);
+      : path.join(".ripple-typst", `out{p}.${format}`);
   const start = Date.now();
   // Restrict FS access to project root via --root; cwd=root keeps paths simple.
   const r = await run(

@@ -8,7 +8,7 @@ import { newProject, parseTypstStderr } from "../server/project.js";
 import { compileProject, typstVersion } from "../server/compile.js";
 
 async function tmpProject() {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "ripplytypst-"));
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "ripple-typst-"));
   const project = newProject(dir);
   await project.writeFile("main.typ", "= Hello\n\nWorld.\n");
   return { dir, project };
@@ -25,7 +25,7 @@ test("resolve rejects path traversal", async () => {
 test("resolve rejects hidden and blocked segments", async () => {
   const { project } = await tmpProject();
   assert.throws(() => project.resolve(".git/config"), /not allowed/);
-  assert.throws(() => project.resolve(".ripplytypst/out.pdf"), /not allowed/);
+  assert.throws(() => project.resolve(".ripple-typst/out.pdf"), /not allowed/);
   assert.throws(() => project.resolve("docs/.secret"), /not allowed/);
   assert.throws(() => project.resolve("node_modules/x"), /not allowed/);
 });
@@ -53,7 +53,7 @@ test("deleteFile refuses directories", async () => {
 
 test("symlink escape is rejected", async () => {
   const { project, dir } = await tmpProject();
-  const outside = await fs.mkdtemp(path.join(os.tmpdir(), "ripplytypst-out-"));
+  const outside = await fs.mkdtemp(path.join(os.tmpdir(), "ripple-typst-out-"));
   await fs.writeFile(path.join(outside, "secret.txt"), "secret");
   await fs.symlink(outside, path.join(dir, "escape"));
   await assert.rejects(() => project.readFile("escape/secret.txt"), /escapes|not allowed/);

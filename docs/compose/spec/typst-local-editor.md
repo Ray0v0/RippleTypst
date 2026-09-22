@@ -65,11 +65,11 @@ Threat model: trusted local user. Default bind `127.0.0.1`. File APIs can re-roo
 | POST | `/api/file/create` | `{path, content?}` | `{ok}` |
 | DELETE | `/api/file` | `?path=rel` | `{ok}` (files only) |
 
-`TreeNode`: `{name, path, type: "file"|"dir", children?}` (hide `.git`, `.ripplytypst`, `node_modules`, dotfiles).
+`TreeNode`: `{name, path, type: "file"|"dir", children?}` (hide `.git`, `.ripple-typst`, `node_modules`, dotfiles).
 
 `Diagnostic`: `{severity: "error"|"warning", message, file?, line?, col?}`.
 
-Compile writes PDF to `<project>/.ripplytypst/out.pdf` (hidden from tree/API). Errors keep last good preview and show diagnostics. Explicit missing `entry` returns `{ok:false}` (no silent fallback).
+Compile writes PDF to `<project>/.ripple-typst/out.pdf` (hidden from tree/API). Errors keep last good preview and show diagnostics. Explicit missing `entry` returns `{ok:false}` (no silent fallback).
 
 ### Typst invocation
 ```
